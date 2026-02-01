@@ -2,8 +2,6 @@
 
 A collaborative documentation platform with AI support and MDX capabilities, built with Next.js and shadcn/ui.
 
-![AI Docs Screenshot](https://via.placeholder.com/800x400?text=AI+Docs+Preview)
-
 ## Features
 
 ### 📝 Collaborative Editing

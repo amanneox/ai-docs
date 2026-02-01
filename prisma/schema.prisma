@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String   @default("Untitled")
+  content     String?
+  coverImage  String?
+  icon        String?
+  isPublished Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  
+  // Self-relation for nested documents
+  parentId    String?
+  parent      Document?  @relation("DocumentChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Document[] @relation("DocumentChildren")
+  
+  // User relation (using Clerk userId)
+  userId      String
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Collaboration
+  Collaborator Collaborator[]
+  
+  @@index([userId])
+  @@index([parentId])
+  @@index([isArchived])
+  @@index([updatedAt])
+}
+
+model Collaborator {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  role       String   @default("editor") // owner, editor, viewer
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@unique([documentId, userId])
+  @@index([userId])
+  @@index([documentId])
+}
+
+model AIUsage {
+  id        String   @id @default(uuid())
+  userId    String
+  tokens    Int      @default(0)
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  
+  @@index([userId, date])
+}

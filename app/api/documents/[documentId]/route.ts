@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { documentsStore } from "@/lib/store"
+import { prisma } from "@/lib/prisma"
 
 interface DocumentRouteProps {
   params: {
@@ -13,20 +13,28 @@ export async function GET(req: NextRequest, { params }: DocumentRouteProps) {
     const { userId } = auth()
     
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userDocs = documentsStore.get(userId) || []
-    const document = userDocs.find(doc => doc.id === params.documentId)
+    const document = await prisma.document.findUnique({
+      where: { 
+        id: params.documentId,
+        userId,
+      },
+      include: { children: true },
+    })
 
     if (!document) {
-      return new NextResponse("Not Found", { status: 404 })
+      return NextResponse.json({ error: "Not Found" }, { status: 404 })
     }
 
     return NextResponse.json(document)
   } catch (error) {
-    console.error("[DOCUMENT_GET]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("[DOCUMENT_GET] Error:", error)
+    return NextResponse.json(
+      { error: "Internal Error", details: String(error) }, 
+      { status: 500 }
+    )
   }
 }
 
@@ -35,38 +43,36 @@ export async function PATCH(req: NextRequest, { params }: DocumentRouteProps) {
     const { userId } = auth()
     
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    const userDocs = documentsStore.get(userId) || []
-    const docIndex = userDocs.findIndex(doc => doc.id === params.documentId)
-
-    if (docIndex === -1) {
-      return new NextResponse("Not Found", { status: 404 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
     const { title, content, coverImage, icon, isPublished, isArchived, parentId } = body
 
-    const updatedDoc = {
-      ...userDocs[docIndex],
-      ...(title !== undefined && { title }),
-      ...(content !== undefined && { content }),
-      ...(coverImage !== undefined && { coverImage }),
-      ...(icon !== undefined && { icon }),
-      ...(isPublished !== undefined && { isPublished }),
-      ...(isArchived !== undefined && { isArchived }),
-      ...(parentId !== undefined && { parentId }),
-      updatedAt: new Date().toISOString(),
-    }
-
-    userDocs[docIndex] = updatedDoc
-    documentsStore.set(userId, userDocs)
+    const updatedDoc = await prisma.document.update({
+      where: {
+        id: params.documentId,
+        userId,
+      },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(content !== undefined && { content }),
+        ...(coverImage !== undefined && { coverImage }),
+        ...(icon !== undefined && { icon }),
+        ...(isPublished !== undefined && { isPublished }),
+        ...(isArchived !== undefined && { isArchived }),
+        ...(parentId !== undefined && { parentId }),
+      },
+      include: { children: true },
+    })
 
     return NextResponse.json(updatedDoc)
   } catch (error) {
-    console.error("[DOCUMENT_PATCH]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("[DOCUMENT_PATCH] Error:", error)
+    return NextResponse.json(
+      { error: "Internal Error", details: String(error) }, 
+      { status: 500 }
+    )
   }
 }
 
@@ -75,26 +81,26 @@ export async function DELETE(req: NextRequest, { params }: DocumentRouteProps) {
     const { userId } = auth()
     
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userDocs = documentsStore.get(userId) || []
-    const docIndex = userDocs.findIndex(doc => doc.id === params.documentId)
+    const updatedDoc = await prisma.document.update({
+      where: {
+        id: params.documentId,
+        userId,
+      },
+      data: {
+        isArchived: true,
+      },
+      include: { children: true },
+    })
 
-    if (docIndex === -1) {
-      return new NextResponse("Not Found", { status: 404 })
-    }
-
-    userDocs[docIndex] = {
-      ...userDocs[docIndex],
-      isArchived: true,
-      updatedAt: new Date().toISOString(),
-    }
-    documentsStore.set(userId, userDocs)
-
-    return NextResponse.json(userDocs[docIndex])
+    return NextResponse.json(updatedDoc)
   } catch (error) {
-    console.error("[DOCUMENT_DELETE]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("[DOCUMENT_DELETE] Error:", error)
+    return NextResponse.json(
+      { error: "Internal Error", details: String(error) }, 
+      { status: 500 }
+    )
   }
 }

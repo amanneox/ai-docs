@@ -3,58 +3,53 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 3.9%;
-  --primary: 0 0% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96.1%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96.1%;
-  --muted-foreground: 0 0% 45.1%;
-  --accent: 0 0% 96.1%;
-  --accent-foreground: 0 0% 9%;
+  /* Dark Documentation Theme - Emerald/Mint Accent */
+  --background: 160 20% 4%;
+  --foreground: 140 10% 96%;
+  --card: 160 20% 6%;
+  --card-foreground: 140 10% 96%;
+  --popover: 160 20% 6%;
+  --popover-foreground: 140 10% 96%;
+  --primary: 155 70% 45%;
+  --primary-foreground: 160 20% 4%;
+  --secondary: 160 15% 12%;
+  --secondary-foreground: 140 10% 96%;
+  --muted: 160 15% 12%;
+  --muted-foreground: 140 10% 55%;
+  --accent: 155 70% 45%;
+  --accent-foreground: 160 20% 4%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 89.8%;
-  --input: 0 0% 89.8%;
-  --ring: 0 0% 3.9%;
-  --chart-1: 12 76% 61%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
-  --radius: 0.5rem;
+  --border: 160 15% 15%;
+  --input: 160 15% 15%;
+  --ring: 155 70% 45%;
+  --sidebar: 160 20% 5%;
+  --sidebar-foreground: 140 10% 90%;
+  --radius: 0.75rem;
 }
 
 .dark {
-  --background: 0 0% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 0 0% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 0 0% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 0 0% 9%;
-  --secondary: 0 0% 14.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 14.9%;
-  --muted-foreground: 0 0% 63.9%;
-  --accent: 0 0% 14.9%;
-  --accent-foreground: 0 0% 98%;
+  --background: 160 20% 4%;
+  --foreground: 140 10% 96%;
+  --card: 160 20% 6%;
+  --card-foreground: 140 10% 96%;
+  --popover: 160 20% 6%;
+  --popover-foreground: 140 10% 96%;
+  --primary: 155 70% 45%;
+  --primary-foreground: 160 20% 4%;
+  --secondary: 160 15% 12%;
+  --secondary-foreground: 140 10% 96%;
+  --muted: 160 15% 12%;
+  --muted-foreground: 140 10% 55%;
+  --accent: 155 70% 45%;
+  --accent-foreground: 160 20% 4%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 14.9%;
-  --input: 0 0% 14.9%;
-  --ring: 0 0% 83.1%;
-  --chart-1: 220 70% 50%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 280 65% 60%;
-  --chart-5: 340 75% 55%;
+  --border: 160 15% 15%;
+  --input: 160 15% 15%;
+  --ring: 155 70% 45%;
+  --sidebar: 160 20% 5%;
+  --sidebar-foreground: 140 10% 90%;
 }
 
 @layer base {
@@ -62,11 +57,12 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Emerald tinted */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -77,12 +73,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: hsl(155 70% 30% / 0.3);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: hsl(155 70% 40% / 0.5);
 }
 
 /* Editor styles */
@@ -92,6 +88,102 @@
 
 .editor-content:focus {
   outline: none;
+}
+
+/* BlockNote Dark Theme Overrides */
+.bn-container {
+  --bn-colors-editor-background: hsl(160 20% 4%) !important;
+  --bn-colors-editor-text: hsl(140 10% 96%) !important;
+  --bn-colors-menu-background: hsl(160 20% 6%) !important;
+  --bn-colors-menu-text: hsl(140 10% 96%) !important;
+  --bn-colors-tooltip-background: hsl(160 15% 12%) !important;
+  --bn-colors-tooltip-text: hsl(140 10% 96%) !important;
+  --bn-colors-side-menu: hsl(140 10% 55%) !important;
+  --bn-colors-side-menu-hover: hsl(155 70% 45%) !important;
+  --bn-colors-highlight-general: hsl(155 70% 20% / 0.3) !important;
+  --bn-colors-highlight-text: hsl(155 70% 45% / 0.2) !important;
+}
+
+.bn-editor {
+  background: transparent !important;
+  color: hsl(140 10% 96%) !important;
+}
+
+.bn-block-content {
+  color: hsl(140 10% 96%) !important;
+}
+
+.bn-inline-content {
+  color: hsl(140 10% 96%) !important;
+}
+
+/* Headings in editor */
+.bn-block-content h1,
+.bn-block-content h2,
+.bn-block-content h3 {
+  color: hsl(140 10% 96%) !important;
+  font-weight: 600 !important;
+}
+
+/* Placeholder styling */
+.bn-editor .bn-block-outer:not([data-is-empty-and-focused="false"]) > .bn-block > .bn-block-content[data-is-empty-and-focused="true"]::after,
+.bn-editor .bn-block-outer:not([data-is-empty-and-focused="false"]) > .bn-block > .bn-block-content[data-is-empty-and-focused="true"] > .bn-inline-content::after {
+  color: hsl(140 10% 40%) !important;
+}
+
+/* Slash menu and dropdowns */
+.bn-suggestion-menu {
+  background: hsl(160 20% 6%) !important;
+  border: 1px solid hsl(160 15% 15%) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5) !important;
+}
+
+.bn-suggestion-menu-item {
+  color: hsl(140 10% 90%) !important;
+}
+
+.bn-suggestion-menu-item:hover,
+.bn-suggestion-menu-item[data-selected="true"] {
+  background: hsl(155 70% 20% / 0.3) !important;
+  color: hsl(155 70% 60%) !important;
+}
+
+/* Formatting toolbar */
+.bn-formatting-toolbar {
+  background: hsl(160 20% 8%) !important;
+  border: 1px solid hsl(160 15% 15%) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.4) !important;
+}
+
+.bn-toolbar-button {
+  color: hsl(140 10% 70%) !important;
+}
+
+.bn-toolbar-button:hover {
+  background: hsl(155 70% 20% / 0.3) !important;
+  color: hsl(155 70% 60%) !important;
+}
+
+/* Side menu */
+.bn-side-menu {
+  color: hsl(140 10% 40%) !important;
+}
+
+.bn-side-menu:hover {
+  color: hsl(155 70% 50%) !important;
+}
+
+/* Link */
+.bn-inline-content a {
+  color: hsl(155 70% 55%) !important;
+  text-decoration: none !important;
+}
+
+.bn-inline-content a:hover {
+  color: hsl(155 70% 65%) !important;
+  text-decoration: underline !important;
 }
 
 /* Collaboration cursor styles */
@@ -127,25 +219,77 @@
 
 .code-block pre {
   @apply p-4 rounded-lg overflow-x-auto;
+  background: hsl(160 20% 8%) !important;
+  border: 1px solid hsl(160 15% 15%) !important;
 }
 
 .code-block .code-language {
-  @apply absolute top-2 right-2 text-xs text-muted-foreground px-2 py-1 bg-background/80 rounded;
+  @apply absolute top-2 right-2 text-xs px-2 py-1 rounded;
+  color: hsl(140 10% 50%) !important;
+  background: hsl(160 20% 12%) !important;
 }
 
 /* MDX Editor styles */
 .mdx-editor {
-  @apply prose prose-neutral dark:prose-invert max-w-none;
+  @apply prose max-w-none;
+  color: hsl(140 10% 96%) !important;
+}
+
+.mdx-editor h1,
+.mdx-editor h2,
+.mdx-editor h3,
+.mdx-editor h4,
+.mdx-editor h5,
+.mdx-editor h6 {
+  color: hsl(140 10% 96%) !important;
+}
+
+.mdx-editor p {
+  color: hsl(140 10% 85%) !important;
 }
 
 .mdx-editor pre {
-  @apply bg-muted;
+  background: hsl(160 20% 8%) !important;
+  border: 1px solid hsl(160 15% 15%) !important;
 }
 
 .mdx-editor code {
-  @apply bg-muted px-1.5 py-0.5 rounded text-sm;
+  background: hsl(160 20% 12%) !important;
+  color: hsl(155 70% 60%) !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.375rem !important;
+  font-size: 0.875rem !important;
 }
 
 .mdx-editor pre code {
-  @apply bg-transparent p-0;
+  background: transparent !important;
+  color: hsl(140 10% 90%) !important;
+  padding: 0 !important;
+}
+
+/* Selection color */
+::selection {
+  background: hsl(155 70% 35% / 0.3) !important;
+  color: hsl(140 10% 96%) !important;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid hsl(155 70% 45%) !important;
+  outline-offset: 2px !important;
+}
+
+/* Button hover glow effect */
+.btn-glow:hover {
+  box-shadow: 0 0 20px hsl(155 70% 45% / 0.3);
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: all 0.2s ease;
+}
+
+.card-hover:hover {
+  border-color: hsl(155 70% 30%);
+  box-shadow: 0 0 30px -10px hsl(155 70% 20% / 0.3);
 }

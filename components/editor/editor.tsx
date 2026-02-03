@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, memo } from "react"
 import { BlockNoteEditor, PartialBlock } from "@blocknote/core"
 import { BlockNoteView } from "@blocknote/mantine"
 import { useCreateBlockNote } from "@blocknote/react"
 import { useDebouncedCallback } from "use-debounce"
 import { useDocument } from "@/hooks/use-document"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Loader2 } from "lucide-react"
 import "@blocknote/core/fonts/inter.css"
 import "@blocknote/mantine/style.css"
 
@@ -15,133 +16,125 @@ interface EditorProps {
   onTextSelect: (text: string) => void
 }
 
+const EditorView = memo(({ editor }: { editor: BlockNoteEditor }) => (
+  <BlockNoteView
+    editor={editor}
+    theme="dark"
+    className="[&_.bn-container]:max-w-none [&_.bn-editor]:px-0 [&_.bn-editor]:py-0 min-h-[calc(100vh-200px)]"
+  />
+))
+EditorView.displayName = "EditorView"
+
 export function Editor({ documentId, onTextSelect }: EditorProps) {
   const { document: docData, updateDocument, isLoading } = useDocument(documentId)
   const [initialContent, setInitialContent] = useState<PartialBlock[] | undefined>(undefined)
   const [isReady, setIsReady] = useState(false)
+  const editorRef = useRef<BlockNoteEditor | null>(null)
+  const isInitializedRef = useRef(false)
 
   useEffect(() => {
-    if (!isLoading && docData) {
-      if (docData.content) {
-        try {
-          const parsed = JSON.parse(docData.content)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setInitialContent(parsed)
-          }
-        } catch (e) {
-          console.log("No valid initial content, using default")
+    if (isInitializedRef.current) return
+    if (isLoading) return
+
+    isInitializedRef.current = true
+
+    if (docData?.content) {
+      try {
+        const parsed = JSON.parse(docData.content)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setInitialContent(parsed)
         }
+      } catch {
+        // Use default content
       }
-      setIsReady(true)
     }
+
+    setIsReady(true)
   }, [docData, isLoading])
 
-  const getDefaultContent = (): PartialBlock[] => [
-    {
-      type: "paragraph",
-      content: "",
-    },
-  ]
+  useEffect(() => {
+    if (isReady) return
+
+    const timeout = setTimeout(() => {
+      if (!isReady) {
+        console.warn("Editor init timeout - proceeding with default content")
+        isInitializedRef.current = true
+        setIsReady(true)
+      }
+    }, 5000)
+
+    return () => clearTimeout(timeout)
+  }, [isReady])
 
   const editor = useCreateBlockNote({
     initialContent: initialContent || getDefaultContent(),
   })
 
   useEffect(() => {
-    if (!editor) return
+    editorRef.current = editor
+  }, [editor])
 
-    const handleSelectionChange = () => {
-      try {
-        const selection = window.getSelection()
-        if (selection && selection.toString().trim()) {
-          onTextSelect(selection.toString())
-        } else {
-          onTextSelect("")
-        }
-      } catch (e) {
-        onTextSelect("")
-      }
+  const debouncedSelectionChange = useDebouncedCallback(() => {
+    try {
+      const selection = window.getSelection()
+      const text = selection?.toString().trim() || ""
+      onTextSelect(text)
+    } catch {
+      onTextSelect("")
     }
+  }, 300)
 
-    document.addEventListener("selectionchange", handleSelectionChange)
+  useEffect(() => {
+    document.addEventListener("selectionchange", debouncedSelectionChange)
     return () => {
-      document.removeEventListener("selectionchange", handleSelectionChange)
+      document.removeEventListener("selectionchange", debouncedSelectionChange)
+      debouncedSelectionChange.cancel()
     }
-  }, [editor, onTextSelect])
+  }, [debouncedSelectionChange])
 
   useEffect(() => {
     const handleInsertAIContent = (event: CustomEvent<string>) => {
-      if (!editor) return
-      
+      const currentEditor = editorRef.current
+      if (!currentEditor) return
+
       const content = event.detail
-      
+      const lines = content.split('\n').filter(line => line.trim())
+      if (lines.length === 0) return
+
       try {
-        const currentBlock = editor.getTextCursorPosition().block
-        
-        const lines = content.split('\n').filter(line => line.trim())
-        
-        if (lines.length === 0) return
-        
-        editor.insertBlocks(
-          [{ type: "paragraph", content: lines[0] }],
-          currentBlock,
-          "after"
-        )
-        
-        let lastBlock = currentBlock
-        for (let i = 1; i < lines.length; i++) {
-          const newBlocks = editor.insertBlocks(
-            [{ type: "paragraph", content: lines[i] }],
-            lastBlock,
-            "after"
-          )
-          if (newBlocks.length > 0) {
-            lastBlock = newBlocks[0]
-          }
-        }
+        const currentBlock = currentEditor.getTextCursorPosition().block
+        const blocks = lines.map(line => ({ type: "paragraph" as const, content: line }))
+        currentEditor.insertBlocks(blocks, currentBlock, "after")
       } catch (error) {
-        try {
-          editor.insertBlocks(
-            [{ type: "paragraph", content: content }],
-            editor.getTextCursorPosition().block,
-            "after"
-          )
-        } catch (e) {
-          console.error("Failed to insert content:", e)
-        }
+        console.error("Failed to insert content:", error)
       }
     }
 
     window.addEventListener("insert-ai-content" as any, handleInsertAIContent)
-    return () => {
-      window.removeEventListener("insert-ai-content" as any, handleInsertAIContent)
-    }
-  }, [editor])
+    return () => window.removeEventListener("insert-ai-content" as any, handleInsertAIContent)
+  }, [])
 
   const saveToServer = useDebouncedCallback(async () => {
-    if (!editor) return
-    
+    const currentEditor = editorRef.current
+    if (!currentEditor) return
+
     window.dispatchEvent(new CustomEvent("document-save-start"))
-    
-    const blocks = editor.document
+
     try {
+      const blocks = currentEditor.document
       await updateDocument({ content: JSON.stringify(blocks) })
       window.dispatchEvent(new CustomEvent("document-save-end"))
     } catch (error) {
       console.error("Failed to save document:", error)
       window.dispatchEvent(new CustomEvent("document-save-end"))
     }
-  }, 2000)
+  }, 1500)
 
   useEffect(() => {
     if (!editor) return
-
-    const unsubscribe = editor.onChange(() => {
-      saveToServer()
-    })
-
+    const unsubscribe = editor.onChange(() => saveToServer())
     return () => {
-      unsubscribe()
+      if (typeof unsubscribe === 'function') unsubscribe()
     }
   }, [editor, saveToServer])
 
@@ -151,25 +144,29 @@ export function Editor({ documentId, onTextSelect }: EditorProps) {
 
   return (
     <div className="editor-content">
-      <BlockNoteView 
-        editor={editor} 
-        theme="light"
-        className="[&_.bn-container]:max-w-none [&_.bn-editor]:px-0 [&_.bn-editor]:py-0 min-h-[calc(100vh-200px)]"
-      />
+      <EditorView editor={editor} />
     </div>
   )
 }
 
+function getDefaultContent(): PartialBlock[] {
+  return [{ type: "paragraph", content: "" }]
+}
+
 function EditorSkeleton() {
   return (
-    <div className="space-y-4 py-4">
-      <Skeleton className="h-12 w-3/4" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-2/3" />
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-5/6" />
+    <div className="space-y-5 py-6">
+      <div className="flex items-center gap-3 mb-4">
+        <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+        <span className="text-sm text-muted-foreground">Loading editor...</span>
+      </div>
+      <Skeleton className="h-14 w-3/4 bg-card" />
+      <Skeleton className="h-4 w-full bg-card" />
+      <Skeleton className="h-4 w-full bg-card" />
+      <Skeleton className="h-4 w-2/3 bg-card" />
+      <div className="h-32 w-full bg-card rounded-xl border border-border animate-pulse" />
+      <Skeleton className="h-4 w-full bg-card" />
+      <Skeleton className="h-4 w-5/6 bg-card" />
     </div>
   )
 }

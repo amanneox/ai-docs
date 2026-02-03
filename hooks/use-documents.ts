@@ -1,36 +1,49 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useToast } from "./use-toast"
+import { toast as toastFn } from "./use-toast"
 import { Document, CreateDocumentInput } from "@/types"
 
 export function useDocuments() {
-  const { toast } = useToast()
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchDocuments = useCallback(async () => {
-    try {
-      const response = await fetch("/api/documents")
-      if (!response.ok) throw new Error("Failed to fetch documents")
-      const data = await response.json()
-      setDocuments(data)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load documents",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [toast])
-
   useEffect(() => {
-    fetchDocuments()
-  }, [fetchDocuments])
+    const abortController = new AbortController()
+    setIsLoading(true)
 
-  const createDocument = async (input: CreateDocumentInput) => {
+    const fetchDocuments = async () => {
+      try {
+        const response = await fetch("/api/documents", {
+          signal: abortController.signal,
+        })
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            setDocuments([])
+            return
+          }
+          throw new Error(`Failed: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        setDocuments(data)
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return
+        toastFn({ title: "Error", description: "Failed to load documents", variant: "destructive" })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDocuments()
+
+    return () => {
+      abortController.abort()
+    }
+  }, [])
+
+  const createDocument = useCallback(async (input: CreateDocumentInput) => {
     try {
       const response = await fetch("/api/documents", {
         method: "POST",
@@ -38,28 +51,19 @@ export function useDocuments() {
         body: JSON.stringify(input),
       })
       
-      if (!response.ok) throw new Error("Failed to create document")
+      if (!response.ok) throw new Error("Failed")
       
       const newDoc = await response.json()
       setDocuments((prev) => [newDoc, ...prev])
-      
-      toast({
-        title: "Document created",
-        description: `"${input.title}" has been created`,
-      })
-      
+      toastFn({ title: "Created", description: `"${input.title}" created` })
       return newDoc
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create document",
-        variant: "destructive",
-      })
+    } catch {
+      toastFn({ title: "Error", description: "Failed to create", variant: "destructive" })
       return null
     }
-  }
+  }, [])
 
-  const updateDocument = async (id: string, updates: Partial<Document>) => {
+  const updateDocument = useCallback(async (id: string, updates: Partial<Document>) => {
     try {
       const response = await fetch(`/api/documents/${id}`, {
         method: "PATCH",
@@ -67,56 +71,33 @@ export function useDocuments() {
         body: JSON.stringify(updates),
       })
       
-      if (!response.ok) throw new Error("Failed to update document")
+      if (!response.ok) throw new Error("Failed")
       
       const updatedDoc = await response.json()
-      setDocuments((prev) =>
-        prev.map((doc) => (doc.id === id ? updatedDoc : doc))
-      )
-      
+      setDocuments((prev) => prev.map((d) => (d.id === id ? updatedDoc : d)))
       return updatedDoc
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update document",
-        variant: "destructive",
-      })
+    } catch {
+      toastFn({ title: "Error", description: "Failed to update", variant: "destructive" })
       return null
     }
-  }
+  }, [])
 
-  const deleteDocument = async (id: string) => {
+  const deleteDocument = useCallback(async (id: string) => {
     try {
-      const response = await fetch(`/api/documents/${id}`, {
-        method: "DELETE",
-      })
-      
-      if (!response.ok) throw new Error("Failed to delete document")
-      
-      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
-      
-      toast({
-        title: "Document deleted",
-        description: "The document has been moved to trash",
-      })
-      
+      const response = await fetch(`/api/documents/${id}`, { method: "DELETE" })
+      if (!response.ok) throw new Error("Failed")
+      setDocuments((prev) => prev.filter((d) => d.id !== id))
+      toastFn({ title: "Deleted", description: "Document moved to trash" })
       return true
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete document",
-        variant: "destructive",
-      })
+    } catch {
+      toastFn({ title: "Error", description: "Failed to delete", variant: "destructive" })
       return false
     }
-  }
+  }, [])
 
-  return {
-    documents,
-    isLoading,
-    createDocument,
-    updateDocument,
-    deleteDocument,
-    refetch: fetchDocuments,
-  }
+  const refetch = useCallback(() => {
+    window.location.reload()
+  }, [])
+
+  return { documents, isLoading, createDocument, updateDocument, deleteDocument, refetch }
 }

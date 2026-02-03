@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useMemo } from "react"
 import { LiveblocksProvider, RoomProvider as LiveblocksRoomProvider } from "@liveblocks/react"
 
 interface RoomProviderProps {
@@ -9,18 +9,25 @@ interface RoomProviderProps {
 }
 
 export function RoomProvider({ children, roomId }: RoomProviderProps) {
-  return (
-    <LiveblocksProvider
-      authEndpoint="/api/liveblocks-auth"
-      throttle={16}
-    >
-      {roomId ? (
-        <LiveblocksRoomProvider id={roomId}>
-          {children}
-        </LiveblocksRoomProvider>
-      ) : (
-        children
-      )}
-    </LiveblocksProvider>
-  )
+  // Memoize to prevent provider recreation on every render
+  const provider = useMemo(() => {
+    const content = roomId ? (
+      <LiveblocksRoomProvider id={roomId}>
+        {children}
+      </LiveblocksRoomProvider>
+    ) : (
+      children
+    )
+    
+    return (
+      <LiveblocksProvider
+        authEndpoint="/api/liveblocks-auth"
+        throttle={16}
+      >
+        {content}
+      </LiveblocksProvider>
+    )
+  }, [roomId, children])
+
+  return provider
 }

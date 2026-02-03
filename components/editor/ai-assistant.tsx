@@ -1,19 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { 
-  Sparkles, 
-  X, 
-  Wand2, 
-  Lightbulb, 
-  Type, 
+import { useState, useEffect, useRef, useCallback, memo } from "react"
+import {
+  Sparkles,
+  X,
+  Wand2,
+  Lightbulb,
+  Type,
   AlignLeft,
   Loader2,
   Check,
   Copy,
-  ArrowRight
+  MessageSquare,
+  PenLine
 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -33,6 +33,7 @@ type AIAction = {
   icon: React.ReactNode
   description: string
   prompt: (text: string) => string
+  gradient: string
 }
 
 const AI_ACTIONS: AIAction[] = [
@@ -41,304 +42,299 @@ const AI_ACTIONS: AIAction[] = [
     label: "Improve Writing",
     icon: <Wand2 className="h-4 w-4" />,
     description: "Make it clearer and more professional",
-    prompt: (text) => `Improve the following text to make it clearer, more professional, and well-structured. Maintain the original meaning but enhance the writing quality:\n\n${text}`,
+    gradient: "from-emerald-500 to-teal-500",
+    prompt: (text) => `Improve the following text to make it clearer, more professional, and well-structured:\n\n${text}`,
   },
   {
     id: "summarize",
     label: "Summarize",
     icon: <Type className="h-4 w-4" />,
     description: "Create a concise summary",
-    prompt: (text) => `Provide a concise summary of the following text, capturing the key points:\n\n${text}`,
+    gradient: "from-blue-500 to-cyan-500",
+    prompt: (text) => `Provide a concise summary:\n\n${text}`,
   },
   {
     id: "expand",
     label: "Expand",
     icon: <AlignLeft className="h-4 w-4" />,
     description: "Add details and examples",
-    prompt: (text) => `Expand on the following text with more details, examples, and explanations to make it more comprehensive:\n\n${text}`,
+    gradient: "from-purple-500 to-pink-500",
+    prompt: (text) => `Expand with more details:\n\n${text}`,
   },
   {
     id: "ideas",
     label: "Generate Ideas",
     icon: <Lightbulb className="h-4 w-4" />,
     description: "Brainstorm related topics",
-    prompt: (text) => `Based on the following text, generate relevant ideas, related topics, and suggestions for further exploration:\n\n${text}`,
+    gradient: "from-orange-500 to-amber-500",
+    prompt: (text) => `Generate relevant ideas:\n\n${text}`,
   },
 ]
 
-export function AIAssistant({ isOpen, onClose, selectedText }: AIAssistantProps) {
+const ActionButton = memo(({ action, isLoading, activeAction, onClick }: {
+  action: AIAction
+  isLoading: boolean
+  activeAction: string | null
+  onClick: () => void
+}) => (
+  <Button
+    variant="outline"
+    className="justify-start gap-3 h-auto py-3 px-4 text-left border-border hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all rounded-xl group"
+    onClick={onClick}
+    disabled={isLoading}
+  >
+    <div className={cn(
+      "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br",
+      action.gradient,
+      "shadow-lg"
+    )}>
+      {isLoading && activeAction === action.id ? (
+        <Loader2 className="h-4 w-4 animate-spin text-white" />
+      ) : (
+        <span className="text-white">{action.icon}</span>
+      )}
+    </div>
+    <div className="min-w-0">
+      <p className="font-medium text-sm">{action.label}</p>
+      <p className="text-xs text-muted-foreground truncate">{action.description}</p>
+    </div>
+  </Button>
+))
+ActionButton.displayName = "ActionButton"
+
+export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAssistantProps) {
   const { toast } = useToast()
   const [customPrompt, setCustomPrompt] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [activeAction, setActiveAction] = useState<string | null>(null)
-  const [hasSelection, setHasSelection] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const pendingRequestRef = useRef<Promise<void> | null>(null)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
-    setHasSelection(selectedText.length > 0)
-  }, [selectedText])
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
+    }
+  }, [])
 
-  const handleAction = async (action: AIAction) => {
-    const textToProcess = selectedText || customPrompt
-    
-    if (!textToProcess.trim()) {
-      toast({
-        title: "No text selected",
-        description: "Select text in your document or type something below",
-      })
+  useEffect(() => {
+    if (!isOpen) {
+      setResult(null)
+      setCustomPrompt("")
+      setIsLoading(false)
+      setActiveAction(null)
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
+    }
+  }, [isOpen])
+
+  const hasSelection = selectedText.length > 0
+
+  const callAI = useCallback(async (prompt: string, actionId: string) => {
+    if (pendingRequestRef.current) {
+      abortControllerRef.current?.abort()
+      try {
+        await pendingRequestRef.current
+      } catch {
+        // Ignore abort errors from previous request
+      }
+    }
+
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
+    if (!mountedRef.current) return
+
+    setIsLoading(true)
+    setActiveAction(actionId)
+    setResult(null)
+
+    const requestPromise = (async () => {
+      try {
+        const res = await fetch("/api/ai/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, documentId }),
+          signal: abortController.signal,
+        })
+
+        if (!res.ok) throw new Error("Failed")
+
+        const data = await res.json()
+        if (data.error) throw new Error(data.message || data.error)
+
+        if (mountedRef.current) {
+          setResult(data.content)
+        }
+
+        if (data.mock && mountedRef.current) {
+          toast({
+            title: data.fallback ? "AI Service Unavailable" : "Demo Mode",
+            description: data.fallback
+              ? "Using fallback mode. Check your OpenAI API key."
+              : "Running in demo mode. Add OPENAI_API_KEY for real AI.",
+          })
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return
+        if (mountedRef.current) {
+          toast({
+            title: "Error",
+            description: "Failed to generate content. Please try again.",
+            variant: "destructive",
+          })
+        }
+      } finally {
+        if (mountedRef.current) {
+          setIsLoading(false)
+          setActiveAction(null)
+        }
+        pendingRequestRef.current = null
+      }
+    })()
+
+    pendingRequestRef.current = requestPromise
+  }, [documentId, toast])
+
+  const handleAction = useCallback((action: AIAction) => {
+    const text = selectedText || customPrompt
+    if (!text.trim()) {
+      toast({ title: "No text selected", description: "Select text or type something" })
       return
     }
+    callAI(action.prompt(text), action.id)
+  }, [selectedText, customPrompt, callAI, toast])
 
-    setIsLoading(true)
-    setActiveAction(action.id)
-    setResult(null)
-
-    try {
-      const res = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: action.prompt(textToProcess),
-          documentId,
-        }),
-      })
-
-      if (!res.ok) throw new Error("Failed to generate")
-
-      const data = await res.json()
-      
-      if (data.error) {
-        throw new Error(data.message || data.error)
-      }
-      
-      setResult(data.content)
-      
-      if (data.mock) {
-        toast({
-          title: data.fallback ? "AI Service Unavailable" : "Demo Mode",
-          description: data.fallback 
-            ? "Using fallback mode. Please check your OpenAI API key."
-            : "Running in demo mode. Add OPENAI_API_KEY for real AI.",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate content. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-      setActiveAction(null)
-    }
-  }
-
-  const handleCustomPrompt = async () => {
+  const handleCustomPrompt = useCallback(() => {
     if (!customPrompt.trim()) return
-    
-    setIsLoading(true)
-    setActiveAction("custom")
-    setResult(null)
+    callAI(customPrompt, "custom")
+  }, [customPrompt, callAI])
 
-    try {
-      const res = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: customPrompt,
-          documentId,
-        }),
-      })
-
-      if (!res.ok) throw new Error("Failed to generate")
-
-      const data = await res.json()
-      
-      if (data.error) {
-        throw new Error(data.message || data.error)
-      }
-      
-      setResult(data.content)
-      
-      if (data.mock) {
-        toast({
-          title: data.fallback ? "AI Service Unavailable" : "Demo Mode",
-          description: data.fallback 
-            ? "Using fallback mode. Please check your OpenAI API key."
-            : "Running in demo mode. Add OPENAI_API_KEY for real AI.",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate content. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-      setActiveAction(null)
-    }
-  }
-
-  const insertToDocument = () => {
+  const insertToDocument = useCallback(() => {
     if (!result) return
-
-    window.dispatchEvent(new CustomEvent("insert-ai-content", { 
-      detail: result 
-    }))
-
-    toast({
-      title: "Content inserted",
-      description: "AI-generated content has been added to your document",
-    })
-
+    window.dispatchEvent(new CustomEvent("insert-ai-content", { detail: result }))
+    toast({ title: "Content inserted", description: "AI content added to document" })
     setResult(null)
     setCustomPrompt("")
-  }
+  }, [result, toast])
 
-  const copyToClipboard = async () => {
+  const copyToClipboard = useCallback(async () => {
     if (!result) return
     await navigator.clipboard.writeText(result)
-    toast({
-      title: "Copied",
-      description: "Content copied to clipboard",
-    })
-  }
+    toast({ title: "Copied", description: "Content copied to clipboard" })
+  }, [result, toast])
+
+  if (!isOpen) return null
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ x: 320, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 320, opacity: 0 }}
-          transition={{ type: "spring", damping: 30, stiffness: 300 }}
-          className="fixed right-0 top-28 bottom-0 w-80 bg-card border-l shadow-xl z-40 flex flex-col"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-500/10 to-blue-500/10">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm">AI Assistant</h3>
-                <p className="text-xs text-muted-foreground">
-                  {hasSelection ? "Text selected" : "Select text to enhance"}
-                </p>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-              <X className="h-4 w-4" />
-            </Button>
+    <div className="fixed right-0 top-28 bottom-0 w-80 bg-card/95 backdrop-blur-xl border-l border-border shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-200">
+      <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-purple-500/10 via-blue-500/5 to-emerald-500/10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 via-blue-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
+            <Sparkles className="h-5 w-5 text-white" />
           </div>
+          <div>
+            <h3 className="font-semibold">AI Assistant</h3>
+            <p className="text-xs text-muted-foreground">
+              {hasSelection ? "Text selected" : "Select text to enhance"}
+            </p>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-xl">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
 
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-4">
-              {/* Selected Text Preview */}
-              {hasSelection && (
-                <div className="bg-muted/50 rounded-lg p-3 border">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Selected text:</p>
-                  <p className="text-sm line-clamp-3">{selectedText}</p>
-                </div>
-              )}
-
-              {/* Quick Actions */}
-              {!result && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Quick Actions
-                  </p>
-                  <div className="grid gap-2">
-                    {AI_ACTIONS.map((action) => (
-                      <Button
-                        key={action.id}
-                        variant="outline"
-                        className="justify-start gap-3 h-auto py-3 px-3 text-left hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-900/20 dark:hover:border-purple-800 transition-all"
-                        onClick={() => handleAction(action)}
-                        disabled={isLoading}
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0">
-                          {isLoading && activeAction === action.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-                          ) : (
-                            <span className="text-purple-600">{action.icon}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm">{action.label}</p>
-                          <p className="text-xs text-muted-foreground truncate">{action.description}</p>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Custom Prompt */}
-              {!result && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Custom Prompt
-                  </p>
-                  <Textarea
-                    placeholder="Ask AI anything... (e.g., 'Write an introduction about...')"
-                    className="min-h-[100px] resize-none text-sm"
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                  />
-                  <Button 
-                    className="w-full gap-2"
-                    onClick={handleCustomPrompt}
-                    disabled={isLoading || !customPrompt.trim()}
-                  >
-                    {isLoading && activeAction === "custom" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                    Generate
-                  </Button>
-                </div>
-              )}
-
-              {/* Result */}
-              {result && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Result
-                    </p>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copyToClipboard}>
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-100 dark:border-purple-800">
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{result}</p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button className="flex-1 gap-2" onClick={insertToDocument}>
-                      <Check className="h-4 w-4" />
-                      Insert
-                    </Button>
-                    <Button variant="outline" onClick={() => setResult(null)}>
-                      Back
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-5">
+          {hasSelection && (
+            <div className="bg-secondary/50 rounded-xl p-4 border border-border">
+              <p className="text-xs font-medium text-emerald-500 mb-2 flex items-center gap-1.5">
+                <PenLine className="h-3 w-3" />
+                Selected text
+              </p>
+              <p className="text-sm line-clamp-3 text-muted-foreground leading-relaxed">{selectedText}</p>
             </div>
-          </ScrollArea>
-        </motion.div>
-      )}
-    </AnimatePresence>
+          )}
+
+          {!result && (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Quick Actions</p>
+              <div className="grid gap-2">
+                {AI_ACTIONS.map((action) => (
+                  <ActionButton
+                    key={action.id}
+                    action={action}
+                    isLoading={isLoading}
+                    activeAction={activeAction}
+                    onClick={() => handleAction(action)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!result && (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custom Prompt</p>
+              <Textarea
+                placeholder="Ask AI anything..."
+                className="min-h-[120px] resize-none text-sm bg-secondary/30 border-border rounded-xl"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+              />
+              <Button
+                className="w-full gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl h-10"
+                onClick={handleCustomPrompt}
+                disabled={isLoading || !customPrompt.trim()}
+              >
+                {isLoading && activeAction === "custom" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MessageSquare className="h-4 w-4" />
+                )}
+                Generate
+              </Button>
+            </div>
+          )}
+
+          {result && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-emerald-500 uppercase tracking-wider">Result</p>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={copyToClipboard}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              <div className="bg-emerald-500/10 rounded-xl p-5 border border-emerald-500/20">
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{result}</p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl h-10"
+                  onClick={insertToDocument}
+                >
+                  <Check className="h-4 w-4" />
+                  Insert
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setResult(null)}
+                  className="rounded-xl h-10"
+                >
+                  Back
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   )
 }

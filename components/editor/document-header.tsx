@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { 
   ArrowLeft, 
@@ -9,7 +9,8 @@ import {
   Sparkles,
   Share2,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Users
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,6 +39,13 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
   const [isDeleting, setIsDeleting] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (document?.title) {
@@ -46,10 +54,14 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
   }, [document?.title])
 
   useEffect(() => {
-    const handleSaveStart = () => setIsSaving(true)
+    const handleSaveStart = () => {
+      if (mountedRef.current) setIsSaving(true)
+    }
     const handleSaveEnd = () => {
-      setIsSaving(false)
-      setLastSaved(new Date())
+      if (mountedRef.current) {
+        setIsSaving(false)
+        setLastSaved(new Date())
+      }
     }
 
     window.addEventListener("document-save-start" as any, handleSaveStart)
@@ -99,11 +111,10 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
   }
 
   return (
-    <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
-      {/* Left */}
-      <div className="flex items-center gap-3 flex-1">
+    <header className="h-16 border-b border-border flex items-center justify-between px-5 bg-card/50 backdrop-blur-xl shrink-0">
+      <div className="flex items-center gap-4 flex-1">
         <Link href="/documents">
-          <Button variant="ghost" size="icon" className="shrink-0">
+          <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9 rounded-xl hover:bg-white/5">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
@@ -116,17 +127,17 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
             onBlur={handleTitleBlur}
             onKeyDown={handleKeyDown}
             placeholder="Untitled"
-            className="font-medium bg-transparent border-none outline-none placeholder:text-muted-foreground/50 truncate focus:ring-0 p-0 h-auto"
+            className="font-semibold text-lg bg-transparent border-none outline-none placeholder:text-muted-foreground/50 truncate focus:ring-0 p-0 h-auto text-foreground"
           />
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {isSaving ? (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 <Clock className="h-3 w-3 animate-spin" />
                 Saving...
               </span>
             ) : lastSaved ? (
-              <span className="flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                 Saved
               </span>
             ) : (
@@ -136,34 +147,42 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
         </div>
       </div>
 
-      {/* Right */}
       <div className="flex items-center gap-2">
-        {/* AI Button */}
         <Button
-          variant={isAIOpen ? "secondary" : "ghost"}
+          variant={isAIOpen ? "default" : "ghost"}
           size="sm"
           onClick={onAIToggle}
           className={cn(
-            "gap-2 transition-all",
-            isAIOpen && "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300"
+            "gap-2 transition-all rounded-xl h-9",
+            isAIOpen 
+              ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40" 
+              : "hover:bg-white/5"
           )}
         >
           <Sparkles className="h-4 w-4" />
           <span className="hidden sm:inline">AI Assist</span>
         </Button>
 
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/5">
+          <Users className="h-4 w-4" />
+        </Button>
+
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/5">
           <Share2 className="h-4 w-4" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/5">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleDelete} disabled={isDeleting} className="text-destructive">
+          <DropdownMenuContent align="end" className="bg-card border-border">
+            <DropdownMenuItem 
+              onClick={handleDelete} 
+              disabled={isDeleting} 
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               {isDeleting ? "Deleting..." : "Delete document"}
             </DropdownMenuItem>

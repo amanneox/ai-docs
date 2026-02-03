@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
+import { auth, currentUser } from "@clerk/nextjs/server"
 import { Liveblocks } from "@liveblocks/node"
 
 const liveblocks = new Liveblocks({
@@ -9,30 +9,31 @@ const liveblocks = new Liveblocks({
 export async function POST(req: NextRequest) {
   try {
     const { userId } = auth()
-    
+
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const userInfo = {
-      id: userId,
-      name: "User", // You'd fetch this from Clerk or your DB
-      avatar: null, // You'd fetch this from Clerk or your DB
-    }
+    // Get user details from Clerk
+    const user = await currentUser()
+    const userName = user?.fullName || user?.emailAddresses[0]?.emailAddress || "Anonymous"
+    const userAvatar = user?.imageUrl
 
-    const { status, body } = await liveblocks.identifyUser(
-      {
-        userId: userId,
-        groupIds: [], // Optional: Add group/organization IDs here
+    // Create a session that grants access to document rooms
+    // Using prepareSession allows us to specify room permissions
+    const session = liveblocks.prepareSession(userId, {
+      userInfo: {
+        name: userName,
+        avatar: userAvatar,
+        id: userId,
       },
-      {
-        userInfo: {
-          name: userInfo.name,
-          avatar: userInfo.avatar,
-          id: userInfo.id,
-        },
-      }
-    )
+    })
+
+    // Grant full access to all document rooms for this user
+    // Rooms are named like "document-{documentId}"
+    session.allow("document-*", session.FULL_ACCESS)
+
+    const { status, body } = await session.authorize()
 
     return new NextResponse(body, { status })
   } catch (error) {

@@ -126,7 +126,8 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
-const listeners: Array<(state: State) => void> = []
+// Use a WeakMap for listeners to avoid memory leaks
+const listeners = new Set<(state: State) => void>()
 
 let memoryState: State = { toasts: [] }
 
@@ -170,16 +171,26 @@ function toast({ ...props }: Toast) {
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
+  const stateRef = React.useRef(state)
+  
+  // Keep ref in sync
+  React.useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
+    const listener = (newState: State) => {
+      // Only update if actually different to prevent unnecessary re-renders
+      if (stateRef.current !== newState) {
+        setState(newState)
       }
     }
-  }, [state])
+    
+    listeners.add(listener)
+    return () => {
+      listeners.delete(listener)
+    }
+  }, [])
 
   return {
     ...state,

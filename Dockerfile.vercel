@@ -37,7 +37,12 @@ ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY \
 RUN npm run build
 
 FROM base AS runner
-ENV NODE_ENV=production \
+# Build arguments are scoped to a Docker stage. Redeclare the Clerk key here so
+# it is also available to the server-side runtime.
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY \
+    NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=3000

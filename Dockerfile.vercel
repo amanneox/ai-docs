@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Reproduces a Vercel-style production build in a container. Vercel's native
-# deployment platform does not read this file; configure the same environment
-# variables in the Vercel project settings when deploying there.
+# Vercel detects this file at the project root and deploys it as a container.
+# Configure runtime variables in the Vercel project settings.
 
 FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat openssl
@@ -55,4 +54,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3000
-CMD ["sh", "-c", "test -n \"$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY\" || { echo \"NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is missing at runtime\" >&2; exit 78; }; exec npm run start"]
+CMD ["sh", "-c", "export CLERK_PUBLISHABLE_KEY=\"${CLERK_PUBLISHABLE_KEY:-$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}\"; test -n \"$CLERK_PUBLISHABLE_KEY\" || { echo \"Clerk publishable key is missing at runtime\" >&2; exit 78; }; exec npm run start"]

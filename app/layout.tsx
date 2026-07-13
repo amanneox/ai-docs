@@ -12,13 +12,16 @@ export const metadata: Metadata = {
   description: "A collaborative documentation platform with AI support and MDX capabilities",
 }
 
+const clerkPublishableKey =
+  process.env.CLERK_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={clerkPublishableKey}>
       <html lang="en" suppressHydrationWarning>
         <body className={inter.className}>
           <ThemeProvider

@@ -7,11 +7,17 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
 ])
 
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    await auth.protect()
-  }
-})
+export default clerkMiddleware(
+  async (auth, req) => {
+    if (!isPublicRoute(req)) {
+      await auth.protect()
+    }
+  },
+  {
+    publishableKey:
+      process.env.CLERK_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  },
+)
 
 export const config = {
   matcher: [

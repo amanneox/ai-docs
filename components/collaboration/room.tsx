@@ -1,12 +1,11 @@
 "use client"
 
-import { ReactNode, useMemo, useRef, useEffect } from "react"
+import { ReactNode, useRef, useEffect } from "react"
 import {
   LiveblocksProvider,
   RoomProvider as LiveblocksRoomProvider,
   ClientSideSuspense
 } from "@liveblocks/react"
-import { useUser } from "@clerk/nextjs"
 import { Loader2, FileText } from "lucide-react"
 
 interface RoomProps {
@@ -15,14 +14,6 @@ interface RoomProps {
 }
 
 function RoomContent({ children, roomId }: RoomProps) {
-  const { user } = useUser()
-
-  const userInfo = useMemo(() => ({
-    name: user?.fullName || user?.emailAddresses[0]?.emailAddress || "Anonymous",
-    avatar: user?.imageUrl,
-    id: user?.id,
-  }), [user?.fullName, user?.emailAddresses, user?.imageUrl, user?.id])
-
   return (
     <LiveblocksRoomProvider
       id={roomId}

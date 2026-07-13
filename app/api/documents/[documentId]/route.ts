@@ -3,14 +3,15 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 
 interface DocumentRouteProps {
-  params: {
+  params: Promise<{
     documentId: string
-  }
+  }>
 }
 
 export async function GET(req: NextRequest, { params }: DocumentRouteProps) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth()
+    const { documentId } = await params
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, { params }: DocumentRouteProps) {
 
     const document = await prisma.document.findUnique({
       where: { 
-        id: params.documentId,
+        id: documentId,
         userId,
       },
       include: { children: true },
@@ -40,7 +41,8 @@ export async function GET(req: NextRequest, { params }: DocumentRouteProps) {
 
 export async function PATCH(req: NextRequest, { params }: DocumentRouteProps) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth()
+    const { documentId } = await params
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -51,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: DocumentRouteProps) {
 
     const updatedDoc = await prisma.document.update({
       where: {
-        id: params.documentId,
+        id: documentId,
         userId,
       },
       data: {
@@ -78,7 +80,8 @@ export async function PATCH(req: NextRequest, { params }: DocumentRouteProps) {
 
 export async function DELETE(req: NextRequest, { params }: DocumentRouteProps) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth()
+    const { documentId } = await params
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -86,7 +89,7 @@ export async function DELETE(req: NextRequest, { params }: DocumentRouteProps) {
 
     const updatedDoc = await prisma.document.update({
       where: {
-        id: params.documentId,
+        id: documentId,
         userId,
       },
       data: {

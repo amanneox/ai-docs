@@ -1,4 +1,6 @@
-const withMDX = require('@next/mdx')({
+import createMDX from "@next/mdx"
+
+const withMDX = createMDX({
   extension: /\.mdx?$/,
   options: {
     remarkPlugins: [],
@@ -10,7 +12,10 @@ const withMDX = require('@next/mdx')({
 const nextConfig = {
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   images: {
-    domains: ['localhost', 'img.clerk.com'],
+    remotePatterns: [
+      { protocol: "http", hostname: "localhost" },
+      { protocol: "https", hostname: "img.clerk.com" },
+    ],
   },
   async headers() {
     return [
@@ -27,4 +32,4 @@ const nextConfig = {
   },
 }
 
-module.exports = withMDX(nextConfig)
+export default withMDX(nextConfig)

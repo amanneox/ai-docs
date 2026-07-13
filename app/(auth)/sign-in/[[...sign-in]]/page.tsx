@@ -20,14 +20,13 @@ export default function SignInPage() {
 
         <SignIn 
           appearance={{
-            baseTheme: undefined,
             variables: {
               colorBackground: "#0d1110",
               colorPrimary: "#10b981",
-              colorText: "#f0fdf4",
-              colorTextSecondary: "#6ee7b7",
-              colorInputBackground: "#1a1f1e",
-              colorInputText: "#f0fdf4",
+              colorForeground: "#f0fdf4",
+              colorMutedForeground: "#6ee7b7",
+              colorInput: "#1a1f1e",
+              colorInputForeground: "#f0fdf4",
               borderRadius: "0.75rem",
             },
             elements: {

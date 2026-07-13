@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation"
 import { auth } from "@clerk/nextjs/server"
 
-export default function Home() {
-  const { userId } = auth()
+export default async function Home() {
+  const { userId } = await auth()
   
   if (userId) {
     redirect("/documents")

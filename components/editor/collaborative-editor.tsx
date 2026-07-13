@@ -144,7 +144,7 @@ function EditorComponent({ doc, provider, documentId, initialContent, isReady }:
 
   const editor = useCreateBlockNote({
     collaboration: {
-      provider,
+      provider: provider as unknown as { awareness: import("y-protocols/awareness").Awareness },
       fragment: doc.getXmlFragment("document-store"),
       user: {
         name: userInfo?.name || "Anonymous",

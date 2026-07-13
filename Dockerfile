@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 # libc6-compat + openssl are required by Prisma's query engine on Alpine
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
@@ -45,7 +45,7 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/next.config.js ./next.config.js
+COPY --from=builder /app/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/prisma ./prisma
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh

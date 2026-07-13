@@ -11,7 +11,7 @@ const mockResponses: Record<string, (text: string) => string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth()
     const geminiApiKey = process.env.GEMINI_API_KEY?.trim()
     
     if (!userId) {
@@ -70,7 +70,7 @@ Respond directly with the generated content without additional commentary.`
         system: systemPrompt,
         prompt: prompt,
         temperature: 0.7,
-        maxTokens: 2000,
+        maxOutputTokens: 2000,
       })
 
       return NextResponse.json({

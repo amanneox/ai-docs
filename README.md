@@ -58,9 +58,10 @@ export CLERK_SECRET_KEY=sk_test_...
 export NEXT_PUBLIC_APP_URL=https://example.com
 export GEMINI_API_KEY=...
 
-docker compose up --build -d
+docker compose --env-file .env.local up --build -d
 ```
 
+For local Docker runs, `--env-file .env.local` makes Compose load the same keys used by Next.js.
 `NEXT_PUBLIC_*` variables are passed at image build time and are embedded in
 the browser bundle. Secret variables are passed only to the running container.
 `GEMINI_API_KEY` is optional; without it, AI features use demo mode.

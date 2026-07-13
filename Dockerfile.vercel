@@ -55,4 +55,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+CMD ["sh", "-c", "test -n \"$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY\" || { echo \"NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is missing at runtime\" >&2; exit 78; }; exec npm run start"]

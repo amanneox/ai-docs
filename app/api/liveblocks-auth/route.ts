@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth, currentUser } from "@clerk/nextjs/server"
 import { Liveblocks } from "@liveblocks/node"
 
-const liveblocks = new Liveblocks({
-  secret: process.env.LIVEBLOCKS_SECRET_KEY!,
-})
+// Route is request-time only; never statically analyzed at build.
+export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +12,11 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
+
+    // Instantiate lazily so `next build` doesn't require the secret at build time.
+    const liveblocks = new Liveblocks({
+      secret: process.env.LIVEBLOCKS_SECRET_KEY!,
+    })
 
     // Get user details from Clerk
     const user = await currentUser()

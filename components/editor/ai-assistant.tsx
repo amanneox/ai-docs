@@ -175,8 +175,8 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
           toast({
             title: data.fallback ? "AI Service Unavailable" : "Demo Mode",
             description: data.fallback
-              ? "Using fallback mode. Check your OpenAI API key."
-              : "Running in demo mode. Add OPENAI_API_KEY for real AI.",
+              ? "Using fallback mode. Check your Gemini API key."
+              : "Running in demo mode. Add GEMINI_API_KEY for real AI.",
           })
         }
       } catch (error) {

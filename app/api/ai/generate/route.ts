@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 
-const isOpenAIConfigured = process.env.OPENAI_API_KEY && 
-  process.env.OPENAI_API_KEY.startsWith("sk-") &&
-  process.env.OPENAI_API_KEY.length > 20
+const isGeminiConfigured = !!process.env.GEMINI_API_KEY &&
+  process.env.GEMINI_API_KEY.length > 20
 
 const mockResponses: Record<string, (text: string) => string> = {
   improve: (text) => `${text}\n\n[Improved version with better clarity and professional tone. The text has been enhanced with proper structure and refined language while maintaining the original meaning.]`,
@@ -28,8 +27,8 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Prompt is required", { status: 400 })
     }
 
-    if (!isOpenAIConfigured) {
-      console.log("[AI_GENERATE] Using mock response (OpenAI not configured)")
+    if (!isGeminiConfigured) {
+      console.log("[AI_GENERATE] Using mock response (Gemini not configured)")
       
       const textMatch = prompt.match(/:\\s*([\\s\\S]+)$/)
       const text = textMatch ? textMatch[1].trim() : prompt
@@ -41,15 +40,19 @@ export async function POST(req: NextRequest) {
       
       return NextResponse.json({
         content: mockResponse,
-        model: "mock-gpt-4o-mini",
+        model: "mock-gemini-2.0-flash",
         usage: { promptTokens: 100, completionTokens: 150, totalTokens: 250 },
         mock: true,
       })
     }
 
     try {
-      const { openai } = await import("@ai-sdk/openai")
+      const { createGoogleGenerativeAI } = await import("@ai-sdk/google")
       const { generateText } = await import("ai")
+
+      const google = createGoogleGenerativeAI({
+        apiKey: process.env.GEMINI_API_KEY,
+      })
 
       const systemPrompt = `You are an AI writing assistant integrated into AI Docs, a collaborative documentation platform. 
 Your task is to help users improve their writing, generate content, and provide suggestions.
@@ -65,7 +68,7 @@ Guidelines:
 Respond directly with the generated content without additional commentary.`
 
       const result = await generateText({
-        model: openai("gpt-4o-mini"),
+        model: google("gemini-2.0-flash"),
         system: systemPrompt,
         prompt: prompt,
         temperature: 0.7,
@@ -74,11 +77,11 @@ Respond directly with the generated content without additional commentary.`
 
       return NextResponse.json({
         content: result.text,
-        model: "gpt-4o-mini",
+        model: "gemini-2.0-flash",
         usage: result.usage,
       })
-    } catch (openaiError) {
-      console.error("[AI_GENERATE] OpenAI error:", openaiError)
+    } catch (geminiError) {
+      console.error("[AI_GENERATE] Gemini error:", geminiError)
       
       const textMatch = prompt.match(/:\\s*([\\s\\S]+)$/)
       const text = textMatch ? textMatch[1].trim() : prompt

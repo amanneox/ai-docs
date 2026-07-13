@@ -37,3 +37,24 @@ Open [http://localhost:3000](http://localhost:3000)
 ## Environment Variables
 
 See `.env.example` for required variables.
+
+## Docker deployment
+
+Docker Compose does not require an `.env` file. Export the variables in the
+shell or configure them in the deployment platform, then build and start the
+services:
+
+```bash
+export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+export CLERK_SECRET_KEY=sk_test_...
+export NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY=pk_dev_...
+export LIVEBLOCKS_SECRET_KEY=sk_dev_...
+export NEXT_PUBLIC_APP_URL=https://example.com
+export GEMINI_API_KEY=...
+
+docker compose up --build -d
+```
+
+`NEXT_PUBLIC_*` variables are passed at image build time and are embedded in
+the browser bundle. Secret variables are passed only to the running container.
+`GEMINI_API_KEY` is optional; without it, AI features use demo mode.

@@ -12,7 +12,21 @@ function createClient(): PrismaClient {
     throw new Error("DATABASE_URL is required")
   }
 
-  const adapter = new PrismaPg({ connectionString })
+  // The managed database (e.g. on Vercel) terminates TLS with a self-signed
+  // certificate in its chain, which node-postgres rejects by default (P1011).
+  // Enable TLS for remote hosts while accepting that cert; if a CA cert is
+  // supplied via DATABASE_CA_CERT we verify against it instead. Local Postgres
+  // (localhost) usually has no TLS, so leave SSL off there.
+  const host = new URL(connectionString).hostname
+  const isLocal = host === "localhost" || host === "127.0.0.1"
+  const ca = process.env.DATABASE_CA_CERT
+
+  const adapter = new PrismaPg({
+    connectionString,
+    ...(isLocal
+      ? {}
+      : { ssl: ca ? { ca } : { rejectUnauthorized: false } }),
+  })
   return new PrismaClient({ adapter })
 }
 

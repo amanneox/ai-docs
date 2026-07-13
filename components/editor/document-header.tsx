@@ -39,6 +39,7 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
   const [isDeleting, setIsDeleting] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState(false)
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -55,7 +56,10 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
 
   useEffect(() => {
     const handleSaveStart = () => {
-      if (mountedRef.current) setIsSaving(true)
+      if (mountedRef.current) {
+        setIsSaving(true)
+        setSaveError(false)
+      }
     }
     const handleSaveEnd = () => {
       if (mountedRef.current) {
@@ -63,13 +67,21 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
         setLastSaved(new Date())
       }
     }
+    const handleSaveError = () => {
+      if (mountedRef.current) {
+        setIsSaving(false)
+        setSaveError(true)
+      }
+    }
 
     window.addEventListener("document-save-start" as any, handleSaveStart)
     window.addEventListener("document-save-end" as any, handleSaveEnd)
+    window.addEventListener("document-save-error" as any, handleSaveError)
 
     return () => {
       window.removeEventListener("document-save-start" as any, handleSaveStart)
       window.removeEventListener("document-save-end" as any, handleSaveEnd)
+      window.removeEventListener("document-save-error" as any, handleSaveError)
     }
   }, [])
 
@@ -77,16 +89,24 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
     setTitle(e.target.value)
   }
 
-  const handleTitleBlur = () => {
+  const handleTitleBlur = async () => {
     if (title !== document?.title) {
-      updateDocument({ title: title || "Untitled" })
+      setIsSaving(true)
+      setSaveError(false)
+      const updatedDocument = await updateDocument({ title: title || "Untitled" })
+      setIsSaving(false)
+      if (updatedDocument) {
+        setLastSaved(new Date())
+      } else {
+        setSaveError(true)
+      }
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault()
-      handleTitleBlur()
+      void handleTitleBlur()
     }
   }
 
@@ -134,6 +154,10 @@ export function DocumentHeader({ documentId, onAIToggle, isAIOpen }: DocumentHea
               <span className="flex items-center gap-1.5">
                 <Clock className="h-3 w-3 animate-spin" />
                 Saving...
+              </span>
+            ) : saveError ? (
+              <span className="flex items-center gap-1.5 text-red-400">
+                Save failed
               </span>
             ) : lastSaved ? (
               <span className="flex items-center gap-1.5">

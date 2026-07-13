@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef, memo } from "react"
+import { useEffect, useState, useRef, memo } from "react"
 import { BlockNoteEditor, PartialBlock } from "@blocknote/core"
 import { BlockNoteView } from "@blocknote/mantine"
 import { useCreateBlockNote } from "@blocknote/react"
@@ -27,10 +27,13 @@ EditorView.displayName = "EditorView"
 
 export function Editor({ documentId, onTextSelect }: EditorProps) {
   const { document: docData, updateDocument, isLoading } = useDocument(documentId)
-  const [initialContent, setInitialContent] = useState<PartialBlock[] | undefined>(undefined)
   const [isReady, setIsReady] = useState(false)
   const editorRef = useRef<BlockNoteEditor | null>(null)
   const isInitializedRef = useRef(false)
+
+  const editor = useCreateBlockNote({
+    initialContent: getDefaultContent(),
+  })
 
   useEffect(() => {
     if (isInitializedRef.current) return
@@ -42,7 +45,7 @@ export function Editor({ documentId, onTextSelect }: EditorProps) {
       try {
         const parsed = JSON.parse(docData.content)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setInitialContent(parsed)
+          editor.replaceBlocks(editor.document, parsed)
         }
       } catch {
         // Use default content
@@ -50,25 +53,7 @@ export function Editor({ documentId, onTextSelect }: EditorProps) {
     }
 
     setIsReady(true)
-  }, [docData, isLoading])
-
-  useEffect(() => {
-    if (isReady) return
-
-    const timeout = setTimeout(() => {
-      if (!isReady) {
-        console.warn("Editor init timeout - proceeding with default content")
-        isInitializedRef.current = true
-        setIsReady(true)
-      }
-    }, 5000)
-
-    return () => clearTimeout(timeout)
-  }, [isReady])
-
-  const editor = useCreateBlockNote({
-    initialContent: initialContent || getDefaultContent(),
-  })
+  }, [docData, editor, isLoading])
 
   useEffect(() => {
     editorRef.current = editor
@@ -122,21 +107,37 @@ export function Editor({ documentId, onTextSelect }: EditorProps) {
 
     try {
       const blocks = currentEditor.document
-      await updateDocument({ content: JSON.stringify(blocks) })
+      const updatedDocument = await updateDocument({ content: JSON.stringify(blocks) })
+      if (!updatedDocument) throw new Error("Document update failed")
       window.dispatchEvent(new CustomEvent("document-save-end"))
     } catch (error) {
       console.error("Failed to save document:", error)
-      window.dispatchEvent(new CustomEvent("document-save-end"))
+      window.dispatchEvent(new CustomEvent("document-save-error"))
     }
-  }, 1500)
+  }, 1000, { maxWait: 5000 })
 
   useEffect(() => {
     if (!editor) return
     const unsubscribe = editor.onChange(() => saveToServer())
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe()
+      saveToServer.flush()
     }
   }, [editor, saveToServer])
+
+  useEffect(() => {
+    const flushPendingSave = () => saveToServer.flush()
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushPendingSave()
+    }
+
+    window.addEventListener("pagehide", flushPendingSave)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      window.removeEventListener("pagehide", flushPendingSave)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [saveToServer])
 
   if (!isReady || isLoading) {
     return <EditorSkeleton />

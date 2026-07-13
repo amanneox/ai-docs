@@ -107,6 +107,7 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
   const [customPrompt, setCustomPrompt] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
+  const [responseModel, setResponseModel] = useState<string | null>(null)
   const [activeAction, setActiveAction] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const pendingRequestRef = useRef<Promise<void> | null>(null)
@@ -124,6 +125,7 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
   useEffect(() => {
     if (!isOpen) {
       setResult(null)
+      setResponseModel(null)
       setCustomPrompt("")
       setIsLoading(false)
       setActiveAction(null)
@@ -152,6 +154,7 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
     setIsLoading(true)
     setActiveAction(actionId)
     setResult(null)
+    setResponseModel(null)
 
     const requestPromise = (async () => {
       try {
@@ -169,6 +172,7 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
 
         if (mountedRef.current) {
           setResult(data.content)
+          setResponseModel(data.model ?? "unknown")
         }
 
         if (data.mock && mountedRef.current) {
@@ -219,6 +223,7 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
     window.dispatchEvent(new CustomEvent("insert-ai-content", { detail: result }))
     toast({ title: "Content inserted", description: "AI content added to document" })
     setResult(null)
+    setResponseModel(null)
     setCustomPrompt("")
   }, [result, toast])
 
@@ -305,7 +310,14 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
           {result && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-emerald-500 uppercase tracking-wider">Result</p>
+                <div>
+                  <p className="text-xs font-medium text-emerald-500 uppercase tracking-wider">Result</p>
+                  {responseModel && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Source: {responseModel}
+                    </p>
+                  )}
+                </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={copyToClipboard}>
                   <Copy className="h-3.5 w-3.5" />
                 </Button>
@@ -325,7 +337,10 @@ export function AIAssistant({ documentId, isOpen, onClose, selectedText }: AIAss
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setResult(null)}
+                  onClick={() => {
+                    setResult(null)
+                    setResponseModel(null)
+                  }}
                   className="rounded-xl h-10"
                 >
                   Back

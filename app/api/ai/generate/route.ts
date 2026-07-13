@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 
-const isGeminiConfigured = !!process.env.GEMINI_API_KEY &&
-  process.env.GEMINI_API_KEY.length > 20
-
 const mockResponses: Record<string, (text: string) => string> = {
   improve: (text) => `${text}\n\n[Improved version with better clarity and professional tone. The text has been enhanced with proper structure and refined language while maintaining the original meaning.]`,
   summarize: (text) => `Summary:\n• ${text.substring(0, 100)}...\n• Key point extracted from the content\n• Main idea condensed for quick reference`,
@@ -15,6 +12,7 @@ const mockResponses: Record<string, (text: string) => string> = {
 export async function POST(req: NextRequest) {
   try {
     const { userId } = auth()
+    const geminiApiKey = process.env.GEMINI_API_KEY?.trim()
     
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 })
@@ -27,7 +25,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Prompt is required", { status: 400 })
     }
 
-    if (!isGeminiConfigured) {
+    if (!geminiApiKey || geminiApiKey.length <= 20) {
       console.log("[AI_GENERATE] Using mock response (Gemini not configured)")
       
       const textMatch = prompt.match(/:\\s*([\\s\\S]+)$/)
@@ -40,7 +38,7 @@ export async function POST(req: NextRequest) {
       
       return NextResponse.json({
         content: mockResponse,
-        model: "mock-gemini-2.0-flash",
+        model: "mock",
         usage: { promptTokens: 100, completionTokens: 150, totalTokens: 250 },
         mock: true,
       })
@@ -51,7 +49,7 @@ export async function POST(req: NextRequest) {
       const { generateText } = await import("ai")
 
       const google = createGoogleGenerativeAI({
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: geminiApiKey,
       })
 
       const systemPrompt = `You are an AI writing assistant integrated into AI Docs, a collaborative documentation platform. 
@@ -68,7 +66,7 @@ Guidelines:
 Respond directly with the generated content without additional commentary.`
 
       const result = await generateText({
-        model: google("gemini-2.0-flash"),
+        model: google("gemini-3.5-flash"),
         system: systemPrompt,
         prompt: prompt,
         temperature: 0.7,
@@ -77,7 +75,7 @@ Respond directly with the generated content without additional commentary.`
 
       return NextResponse.json({
         content: result.text,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         usage: result.usage,
       })
     } catch (geminiError) {
